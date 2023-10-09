@@ -1,24 +1,87 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import "./styles.css";
+import {
+  Book,
+  BookInformation,
+  Review,
+  ReviewInformation,
+  User
+} from "./lib/types";
+import { getBooks, getUsers, getReviews } from "./lib/api";
+import { useEffect, useState, FC } from "react";
+import Card from "./Card";
 
-function App() {
+const toReviewInformation = (
+  review: Review,
+  users: User[]
+): ReviewInformation => {
+  const userName = users.find((user) => review.userId === user.id);
+
+  return {
+    id: review.id,
+    user: userName || {id: "", name: ""},
+    text: review.text
+  };
+};
+
+const toBookInformation = (
+  book: Book,
+  users: User[],
+  reviews: Review[]
+): BookInformation => {
+  const autorName = users.find((user) => user.id === book.authorId);
+
+  const infoAllREviews = reviews.map((review) => 
+    toReviewInformation(review, users)
+  );
+  const contentIdBook = infoAllREviews.filter(
+    (review) => review.id === book.reviewIds[0]
+  );
+
+  return {
+    id: book.id,
+    name: book.name || 'Книга без названия',
+    author: autorName || {id: "", name: "Неизвестный автор"},
+    reviews: contentIdBook ? contentIdBook : [],
+    description: book.description,
+  }
+}
+
+const App: FC =() => {
+  const [books, setBooks] = useState<Book[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchBooks = async () => {
+      setIsLoading(true);
+      try{
+        const [fetchedBooks, fetchedUsers, fetchedReviews] = await Promise.all([
+          getBooks(),
+          getUsers(),
+          getReviews(),
+        ]);
+        setBooks(fetchedBooks);
+        setUsers(fetchedUsers)
+        setReviews(fetchedReviews)
+
+      } catch(e){
+        alert(`Book not found ${e}`)
+      } finally{
+        setIsLoading(false)
+      }
+    };
+    fetchBooks();
+  }, []);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div>
+      <h1>Мои книги:</h1>
+      {isLoading && <div>Загрузка...</div>}
+      {!isLoading &&
+        books.map((b) => (
+          <Card key={b.id} book={toBookInformation(b, users, reviews)} />
+        ))}
     </div>
   );
 }
